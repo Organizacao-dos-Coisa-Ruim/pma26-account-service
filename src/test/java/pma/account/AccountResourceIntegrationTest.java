@@ -6,14 +6,16 @@ import static org.hamcrest.Matchers.containsString;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.micrometer.metrics.test.autoconfigure.AutoConfigureMetrics;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
@@ -24,6 +26,8 @@ import org.springframework.test.web.servlet.MvcResult;
 import com.jayway.jsonpath.JsonPath;
 
 /** Sobe a aplicação inteira (H2 + Flyway) e testa os endpoints via HTTP simulado. */
+// métricas ficam desligadas em testes por padrão; religamos para testar o endpoint do Prometheus
+@AutoConfigureMetrics
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
@@ -44,6 +48,15 @@ class AccountResourceIntegrationTest {
   void healthCheck() throws Exception {
     mockMvc.perform(get("/accounts/health-check"))
         .andExpect(status().isOk());
+  }
+
+  @Test
+  void metricasDoPrometheusComHistogramaDeLatencia() throws Exception {
+    mockMvc.perform(get("/accounts/health-check"));
+
+    mockMvc.perform(get("/actuator/prometheus"))
+        .andExpect(status().isOk())
+        .andExpect(content().string(org.hamcrest.Matchers.containsString("http_server_requests_seconds_bucket")));
   }
 
   @Test
