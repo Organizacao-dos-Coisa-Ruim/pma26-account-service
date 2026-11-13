@@ -22,3 +22,20 @@ spring:
     schemas: account
     default-schema: account
     create-schemas: true
+
+# Observabilidade: health e métricas no formato do Prometheus em /actuator/*.
+# O gateway não roteia /actuator, então isso só é acessível pela rede interna.
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info, prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+  metrics:
+    distribution:
+      # histograma de latência por rota, para calcular p95/p99 no Grafana
+      percentiles-histogram:
+        http.server.requests: true
