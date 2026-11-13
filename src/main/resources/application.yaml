@@ -1,3 +1,24 @@
+server:
+  port: 8080
+
 spring:
   application:
-    name: account-service
+    name: account
+  # Conexão com o Postgres vem de variáveis de ambiente (RDS em produção)
+  datasource:
+    url: jdbc:postgresql://${DATABASE_HOST:localhost}:${DATABASE_PORT:5432}/${DATABASE_DB:store}
+    username: ${DATABASE_USERNAME:store}
+    password: ${DATABASE_PASSWORD}
+  jpa:
+    # quem cria o schema é o Flyway; o Hibernate só confere se bate com as entidades
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        default_schema: account
+  # Cada serviço usa um schema próprio dentro do mesmo banco
+  flyway:
+    schemas: account
+    default-schema: account
+    create-schemas: true
