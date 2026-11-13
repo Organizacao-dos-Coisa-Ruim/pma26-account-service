@@ -1,0 +1,6 @@
+# Perfil de teste: H2 em memória no modo PostgreSQL, rodando as mesmas migrations do Flyway
+spring:
+  datasource:
+    url: jdbc:h2:mem:account;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1
+    username: sa
+    password: ""
