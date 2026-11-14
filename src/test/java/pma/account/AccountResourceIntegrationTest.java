@@ -128,6 +128,53 @@ class AccountResourceIntegrationTest {
         .andExpect(status().isUnauthorized());
   }
 
+  // --- RBAC: headers que o gateway coloca depois de validar o JWT -------------
+
+  @Test
+  void contaNovaTemRoleUserELoginDevolveORole() throws Exception {
+    String id = createAccount("Ana", "ana@insper.edu.br", "123456");
+
+    mockMvc.perform(get("/accounts/" + id))
+        .andExpect(jsonPath("$.role").value("user"));
+    mockMvc.perform(post("/accounts/login")
+        .contentType(MediaType.APPLICATION_JSON)
+        .content("{\"email\":\"ana@insper.edu.br\",\"password\":\"123456\"}"))
+        .andExpect(jsonPath("$.role").value("user"));
+  }
+
+  @Test
+  void userNaoListaNemApagaContas() throws Exception {
+    String id = createAccount("Ana", "ana@insper.edu.br", "123456");
+
+    mockMvc.perform(get("/accounts").header("id-account", id).header("role-account", "user"))
+        .andExpect(status().isForbidden());
+    mockMvc.perform(delete("/accounts/" + id).header("id-account", id).header("role-account", "user"))
+        .andExpect(status().isForbidden());
+  }
+
+  @Test
+  void userSoVeAPropriaConta() throws Exception {
+    String ana = createAccount("Ana", "ana@insper.edu.br", "123456");
+    String bia = createAccount("Bia", "bia@insper.edu.br", "123456");
+
+    mockMvc.perform(get("/accounts/" + ana).header("id-account", ana).header("role-account", "user"))
+        .andExpect(status().isOk());
+    mockMvc.perform(get("/accounts/" + bia).header("id-account", ana).header("role-account", "user"))
+        .andExpect(status().isForbidden());
+  }
+
+  @Test
+  void adminListaVeEApagaQualquerConta() throws Exception {
+    String ana = createAccount("Ana", "ana@insper.edu.br", "123456");
+
+    mockMvc.perform(get("/accounts").header("id-account", "adm").header("role-account", "admin"))
+        .andExpect(status().isOk());
+    mockMvc.perform(get("/accounts/" + ana).header("id-account", "adm").header("role-account", "admin"))
+        .andExpect(status().isOk());
+    mockMvc.perform(delete("/accounts/" + ana).header("id-account", "adm").header("role-account", "admin"))
+        .andExpect(status().isNoContent());
+  }
+
   private String createAccount(String name, String email, String password) throws Exception {
     MvcResult result = mockMvc.perform(post("/accounts")
         .contentType(MediaType.APPLICATION_JSON)

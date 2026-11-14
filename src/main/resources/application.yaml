@@ -43,3 +43,9 @@ management:
       # histograma de latência por rota, para calcular p95/p99 no Grafana
       percentiles-histogram:
         http.server.requests: true
+
+pma:
+  # Admin inicial criado na subida (AdminBootstrap). Vazio = não cria.
+  admin:
+    email: ${ADMIN_EMAIL:}
+    password: ${ADMIN_PASSWORD:}

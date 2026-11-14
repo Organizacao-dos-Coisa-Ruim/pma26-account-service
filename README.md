@@ -15,6 +15,8 @@ Implementação do serviço **Account** (cadastro de usuários). Implementa a in
 | `PasswordConfig` | Bean do `BCryptPasswordEncoder` |
 
 Senhas são guardadas só como hash **BCrypt** (salt aleatório embutido no hash).
+
+**Papéis (RBAC):** toda conta criada pela API é `user`; o primeiro `admin` é criado pelo `AdminBootstrap` a partir de `ADMIN_EMAIL`/`ADMIN_PASSWORD`. Com os headers `id-account`/`role-account` do gateway, `GET /accounts` e `DELETE` exigem `admin` e `GET /accounts/{id}` exige ser a própria conta ou `admin` (`403` caso contrário). Sem esses headers a chamada é interna (ex.: Auth via Feign) e não é restringida.
 O schema do banco é criado pelo **Flyway** (`src/main/resources/db/migration`).
 
 ## Variáveis de ambiente
@@ -26,6 +28,7 @@ O schema do banco é criado pelo **Flyway** (`src/main/resources/db/migration`).
 | `DATABASE_DB` | `store` |
 | `DATABASE_USERNAME` | `store` |
 | `DATABASE_PASSWORD` | – (obrigatória) |
+| `ADMIN_EMAIL` / `ADMIN_PASSWORD` | – (opcionais) admin inicial, criado na subida se o email não existir |
 
 ## Build, testes e imagem
 

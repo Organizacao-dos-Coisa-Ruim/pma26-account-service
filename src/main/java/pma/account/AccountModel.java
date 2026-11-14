@@ -34,4 +34,8 @@ public class AccountModel {
   @Column(name = "tx_password_hash", nullable = false)
   private String passwordHash;
 
+  /** "user" ou "admin" (ver AccountOut.ROLE_*). */
+  @Column(name = "tx_role", nullable = false)
+  private String role;
+
 }

@@ -19,8 +19,23 @@ public class AccountService {
   private final AccountRepository accountRepository;
   private final PasswordEncoder passwordEncoder;
 
+  /** Toda conta criada pela API é "user". Admin só nasce pelo AdminBootstrap. */
   @Transactional
   public AccountOut create(AccountIn in) {
+    return create(in, AccountOut.ROLE_USER);
+  }
+
+  /** Cria o admin inicial se o email ainda não existe. Devolve true se criou. */
+  @Transactional
+  public boolean createAdminIfMissing(String name, String email, String password) {
+    if (accountRepository.existsByEmail(normalize(email))) {
+      return false;
+    }
+    create(new AccountIn(name, email, password), AccountOut.ROLE_ADMIN);
+    return true;
+  }
+
+  private AccountOut create(AccountIn in, String role) {
     if (in == null || isBlank(in.name()) || isBlank(in.email()) || isBlank(in.password())) {
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "name, email e password são obrigatórios");
     }
@@ -33,24 +48,33 @@ public class AccountService {
         .name(in.name().trim())
         .email(email)
         .passwordHash(passwordEncoder.encode(in.password()))
+        .role(role)
         .build();
     return AccountParser.to(accountRepository.save(model));
   }
 
-  public List<AccountOut> findAll() {
+  /** Só admin (o gateway já bloqueia; aqui é a segunda barreira). */
+  public List<AccountOut> findAll(Requester requester) {
+    requireAdmin(requester);
     return accountRepository.findAll().stream()
         .map(AccountParser::to)
         .toList();
   }
 
-  public AccountOut findById(String id) {
+  /** A própria conta ou admin. */
+  public AccountOut findById(String id, Requester requester) {
+    if (!requester.isInternal() && !requester.isAdmin() && !requester.id().equals(id)) {
+      throw forbidden();
+    }
     return accountRepository.findById(id)
         .map(AccountParser::to)
         .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "conta não encontrada"));
   }
 
+  /** Só admin. */
   @Transactional
-  public void delete(String id) {
+  public void delete(String id, Requester requester) {
+    requireAdmin(requester);
     if (!accountRepository.existsById(id)) {
       throw new ResponseStatusException(HttpStatus.NOT_FOUND, "conta não encontrada");
     }
@@ -70,6 +94,17 @@ public class AccountService {
         .filter(model -> passwordEncoder.matches(in.password(), model.getPasswordHash()))
         .map(AccountParser::to)
         .orElseThrow(AccountService::unauthorized);
+  }
+
+  /** Chamadas internas (sem headers do gateway) passam; pelo gateway, só admin. */
+  private static void requireAdmin(Requester requester) {
+    if (!requester.isInternal() && !requester.isAdmin()) {
+      throw forbidden();
+    }
+  }
+
+  private static ResponseStatusException forbidden() {
+    return new ResponseStatusException(HttpStatus.FORBIDDEN, "acesso negado");
   }
 
   private static ResponseStatusException unauthorized() {
