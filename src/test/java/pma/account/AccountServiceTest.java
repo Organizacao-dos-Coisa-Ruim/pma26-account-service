@@ -69,6 +69,33 @@ class AccountServiceTest {
             e -> assertThat(e.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST));
   }
 
+  /** Achado do scan OWASP ZAP (#78): antes, esses valores davam 500 (banco/BCrypt) em vez de 400. */
+  @Test
+  void createComCamposGrandesDemaisDa400() {
+    String longo = "a".repeat(AccountService.MAX_LENGTH + 1);
+    for (AccountIn in : new AccountIn[] {
+        new AccountIn(longo, "ana@insper.edu.br", "123456"),
+        new AccountIn("Ana", longo + "@insper.edu.br", "123456"),
+        new AccountIn("Ana", "ana@insper.edu.br", "p".repeat(AccountService.MAX_PASSWORD_BYTES + 1)),
+        // 37 caracteres "ç" = 74 bytes em UTF-8: o limite do BCrypt é em bytes, não em caracteres
+        new AccountIn("Ana", "ana@insper.edu.br", "ç".repeat(37))}) {
+      assertThatThrownBy(() -> accountService.create(in))
+          .isInstanceOfSatisfying(ResponseStatusException.class,
+              e -> assertThat(e.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST));
+    }
+    verify(accountRepository, never()).save(any());
+  }
+
+  @Test
+  void createNoLimiteFunciona() {
+    when(accountRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+    accountService.create(new AccountIn("a".repeat(AccountService.MAX_LENGTH), "ana@insper.edu.br",
+        "p".repeat(AccountService.MAX_PASSWORD_BYTES)));
+
+    verify(accountRepository).save(any());
+  }
+
   @Test
   void findByIdInexistenteDa404() {
     when(accountRepository.findById("x")).thenReturn(Optional.empty());

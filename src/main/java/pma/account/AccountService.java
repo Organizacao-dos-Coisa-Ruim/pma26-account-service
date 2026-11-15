@@ -1,5 +1,6 @@
 package pma.account;
 
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.UUID;
 
@@ -15,6 +16,11 @@ import lombok.RequiredArgsConstructor;
 @Service
 @RequiredArgsConstructor
 public class AccountService {
+
+  /** Tamanho das colunas tx_name e tx_email (VARCHAR(256) na migration). */
+  static final int MAX_LENGTH = 256;
+  /** O BCrypt só considera os primeiros 72 bytes da senha e recusa senhas maiores. */
+  static final int MAX_PASSWORD_BYTES = 72;
 
   private final AccountRepository accountRepository;
   private final PasswordEncoder passwordEncoder;
@@ -38,6 +44,14 @@ public class AccountService {
   private AccountOut create(AccountIn in, String role) {
     if (in == null || isBlank(in.name()) || isBlank(in.email()) || isBlank(in.password())) {
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "name, email e password são obrigatórios");
+    }
+    // Achado do scan OWASP ZAP (#78): sem estes limites, valores grandes quebravam no banco
+    // (VARCHAR(256)) ou no BCrypt (máximo de 72 bytes) e viravam erro 500 em vez de 400.
+    if (in.name().trim().length() > MAX_LENGTH || normalize(in.email()).length() > MAX_LENGTH) {
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "name e email têm no máximo " + MAX_LENGTH + " caracteres");
+    }
+    if (in.password().getBytes(StandardCharsets.UTF_8).length > MAX_PASSWORD_BYTES) {
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "password tem no máximo " + MAX_PASSWORD_BYTES + " bytes");
     }
     String email = normalize(in.email());
     if (accountRepository.existsByEmail(email)) {
